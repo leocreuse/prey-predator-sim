@@ -1,0 +1,247 @@
+\documentclass[12pt,a4paper,titlepage]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{lmodern}
+\usepackage[left=3cm,right=3cm,top=3cm,bottom=3cm]{geometry}
+\title{Projet proies-prédateurs}
+\author{Léo Creuse}
+\usepackage{float}
+\usepackage{placeins}
+\begin{document}
+\maketitle
+\tableofcontents
+\pagebreak
+\section{Introduction}
+Ce projet entre dans le cadre de l'enseignement de la programmation orientée objet en deuxième année. Le 
+langage de programmation utilisé est donc java 1.8. Le but du projet est d'implémenter une simulation d'un 
+système proies-prédateurs, selon les consignes disponibles sur la page LMS du cours associé. Le projet se 
+découpe donc en quatre grandes parties, chacune ayant pour but de mettre en place des fonctionnalités 
+spécifiques. Il est important de noter à ce stade que certaines fonctionnalités sont encore expérimentales, 
+voire non testés, cela sera précisé à chaque fois dans la présente notice, ainsi que les raisons ayant empêché 
+la finalisation de ces fonctionnalités.
+ 
+
+La présente notice a pour but d'expliquer les choix effectués lors de la conception du code, les classes 
+utilisées, et les autres spécificités du langage java utilisées. Le projet s'est déroulé en trois phases: une 
+phase de conception "sur papier" de la simulation: l'ensemble des classes, et le liens entre elles ont été 
+définis, donnant lieux à des diagrammes UML préliminaires, puis une phase d'implémentation, où certaines 
+modifications ont dues être apportées aux classes définies à partir du diagramme UML initial, puis enfin une 
+phase de synthèse pour déterminer s'il y avait des redondances, ou des approches peu efficaces facilement 
+corrigibles dans la simulation.
+
+
+Il est important de noter que l'ensemble du fonctionnement du code ne sera pas détaillé dans cette notice, 
+mais des informations complémentaires se trouvent dans les commentaires du code.
+
+\FloatBarrier
+\begin{figure}[h]
+\includegraphics[width = \textwidth]{"../diagrammes/sim"}
+\caption{Vue d'une exécution de la simulation}
+\label{sim}
+\end{figure}
+
+\FloatBarrier
+
+\section{Architecture de la simulation}
+\begin{figure}[h]
+\includegraphics[width = \textwidth]{"../diagrammes/Overall"}
+\caption{Diagramme de classe global de la simulation}
+\label{Overall}
+\end{figure}
+\subsection{Contraintes}
+L'architecture de la simulation était premièrement soumise à quelques contraintes, puisque certains fichiers 
+de base étaient fournis, et non modifiables. Ainsi, la simulation devait renvoyer des éléments de type 
+\texttt{Circle}. D'autre part, le serveur simple étant aussi fourni, et non modifiable, il fallait que le 
+client d'interconnexion possède certains flux de données particuliers, notamment une connexion en TCP. Enfin, 
+il fallait que le code s'exécute suffisamment rapidement pour que l'animation soit agréable, voir 
+compréhensible lors qu'elle était regardée.
+\FloatBarrier
+\subsection{Structure globale}
+La structure globale de la simulation est représentée dans la figure~\ref{Overall} page~\pageref{Overall}.
+Le principe de cette simulation est que la classes \texttt{GraphicalDisplay} crée une instance de 
+\texttt{Simulation}, et appelle périodiquement une méthode \texttt{update()} de simulation afin d'effectuer un 
+pas de simulation, et récupère l'ensemble des éléments à afficher via la méthode \texttt{getElement()}, devant 
+retourner une liste de \texttt{Circle}.
+
+J'ai donc choisi pour se faire de créer une classe \texttt{Animal}, héritant de la classe \texttt{Circle} 
+fournie par javafx pour obtenir une représentation générale de ce que pourrait être un animal évoluant au sein 
+de la simulation, et deux classes \texttt{Prey} et \texttt{Predator} pour représenter les proies et les 
+prédateurs plus spécifiquement. Ces deux classes héritent de \texttt{Animal}. On retrouve donc dans 
+\texttt{Simulation} deux listes, une de proies, et une de prédateurs, pour représenter les créatures présentes 
+dans la simulation à l'étape courante. Le diagramme possède une classe \texttt{DummyClient}, qui ne sert qu'à 
+gérer les sorties et entrées des créatures aux frontières de la simulation, et permet de garder un code 
+extrêmement proche lors du passage à un client d'interconnexion. Cette classes sert donc de "client fictif" 
+d'où le nom de la classe. Enfin, une classe \texttt{Cst} stocke l'ensemble des constantes du problème, telles 
+que définies au début de l'exécution de la simulation. L'utilisation d'une classe à part me permet de plus 
+simplement retrouver le fichier à modifier pour régler la stabilité du problème, et même d'appliquer un 
+algorithme du gradient pour tenter de trouver les paramètres optimaux.
+
+Le déroulement d'une étape de simulation sera détaillé dans la section consacrée à l'explication de la classe 
+\texttt{Simulation}.
+\section{Les classes implémentées}
+Les diagrammes de classes présentés ici sont les diagrammes des classes dans leur état le plus amélioré, 
+cependant les différentes versions (version de base, version avec interconnexion simple client, version avec 
+interconnexion multi-client, version avancée) seront rendues avec cette notice.
+
+Les liens vers les classes prédéfinies dans java (ou plus généralement extérieures au package du projet) ne sont pas représentées, cela apparait sous forme de \texttt{<no type>}, car les diagrammes finaux on été générés à partir du code java, celui-ci ayant beaucoup été modifier depuis le diagramme UML de base. Quand le type de retour n'est pas simple à déterminer (par ex la fonction \texttt{toString()}) le type de retour sera précisé.
+
+
+\subsection{La classe \texttt{Animal}}
+\FloatBarrier
+\begin{figure}[h]
+\includegraphics[width = \textwidth]{"../diagrammes/Animal"}
+\caption{Diagramme de la classe \texttt{Animal}}
+\label{Animal}
+\end{figure}
+
+Cette classe représente les créatures les plus générales pouvant se trouver dans l'espace de simulation. Son 
+diagramme de classe est représenté figure~\ref{Animal} page~\pageref{Animal}. 
+L'héritage depuis la classe \texttt{Circle} de javafx n'est pas ici représentée, mais est néanmoins 
+essentielle, car ce sont les attributs \texttt{CenterX} et \texttt{CenterY} de \texttt{Circle} qui définiront 
+la position de l'animal. Les autres attributs comprennent notamment l'age et la faim, augmentant 
+monotonnement, et entrainant la mort de l'animal si ces attributs atteignent une valeur limite; un taux de 
+faim, un déplacement, de classe \texttt{Movement} qui stocke les information de vitesse et direction de 
+l'animal, des constantes telles que le rayon de reproduction, des paramètres de champ de vision (distance et 
+angle), ainsi que des attributs servant à suivre l'état de l'animal au cours d'une étape.
+
+Les méthodes disponibles comprennent un constructeur explicite, un constructeur "à bébé", servant à dupliquer 
+un animal, mais ayant un age nul, et une faim nulle, des méthodes générales pour modifier, ou accéder à 
+certains attributs, des méthodes de modification de statut de l'animal (faim, age, stratégie de déplacement, 
+état de reproduction, vie ou mort), ainsi qu'un certain nombre de méthodes statiques, permettant la 
+reproduction entre deux animaux, de trouver diverses distances selon des critères particuliers: 
+\texttt{distance} donne la distance euclidienne entre deux animaux; \texttt{deadComp(Animal ordig, Animal other)} renvoie la distance 
+entre deux animaux en prenant en compte le champ de vision, et la vie ou non de l'autre animal: si l'animal 
+passé en paramètre \texttt{other} est mort, ou n'est pas dans son champ de vision, alors la distance est 
+supérieure à deux fois la taille de la simulation, permettant de trouver facilement l'animal viviant le plus 
+proche dans le champ de vision. La fonction \texttt{reprodComp()} remplie la même fonction, mais prend en compte 
+l'état de reproduction de l'autre l'animal.
+\FloatBarrier
+\subsection{La classe \texttt{Predator}}
+\FloatBarrier
+\begin{figure}[h]
+\includegraphics[width = \textwidth]{"../diagrammes/predator"}
+\caption{Diagramme de la classe \texttt{Predator}}
+\label{predator}
+\end{figure}
+
+La classe \texttt{Predator} hérite de la classe \texttt{Animal}, et sert à spécifier le comportement des animaux en tant que prédateurs. Elle est représentée figure~\ref{predator}, page~\pageref{predator}. C'est pourquoi, cette classe redéfinit un certain nombre de de méthode existantes dans animal, afin de spécifier le comportement propre aux prédateurs (notamment, initialisation d'un certain nombre d'attributs avec les constantes propres aux prédateurs). Cependant, comme les prédateurs peuvent effectuer des action en plus, certaines méthodes supplémentaires ont été écrites: la méthode \texttt{predate()} permet à l'animal de réinitialiser sa faim, en tuant la proie la plus proche si possible, et si cette proie existe. La méthode \texttt{computeNextMovement()} met à jour la stratégie de déplacement du prédateur selon cette règle: La vitesse est proportionnelle à la faim du prédateur (coefficient négatif, plus le prédateur a faim, moins il va vite); si il y a une proie dans le champ de vision ($\pi/3$ actuellement) alors le prédateur sprinte (vitesse doublée) vers elle, sinon il se dirige en ligne droite à vitesse normale.
+
+Pour pouvoir sélectionner la proie à chasser, et le prédateur avec qui se reproduire, chaque prédateur possède comme attribut la proie et le prédateur le plus proche de lui, au sens du champ de vision pour la proie et de la reproduction pour le prédateur (cf classe \texttt{Animal}). Ceux-ci sont déterminés en utilisant les algorithmes de tri génériques offerts par l'API java 8, en utilisant comme fonction d'ordre les fonction \texttt{deadComp()} et \texttt{reprodComp()} définies dans la classe \texttt{Animal}.
+
+Dans cette implémentation du problème chaque prédateur se reproduit et mange au plus une fois par étape de simulation.
+\FloatBarrier
+\subsection{La classe \texttt{Prey}}
+\FloatBarrier
+La classe \texttt{Prey} est le pendant de la classe \texttt{Predator} pour les proies. Les fonctions y sont similaires, si ce n'est que la stratégie de déplacement consiste en fuir en sprintant le prédateur dans son champ de vision ($\pi$ actuellement), sinon de se déplacer dans une direction aléatoire à vitesse normale.
+Son diagramme de classe est représenté figure~\ref{prey} page~\pageref{prey}
+\begin{figure}[h]
+\includegraphics[width = \textwidth]{"../diagrammes/prey"}
+\caption{Diagramme de la classe \texttt{Prey} }
+\label{prey}
+\end{figure}
+\FloatBarrier
+\subsection{La classe \texttt{Simulation}}
+\FloatBarrier
+La classe \texttt{Simulation} contient l'ensemble des méthodes et attributs nécessaires à l'itération d'une étape de simulation. Son diagramme de classe est représenté figure~\ref{simulation}, page~\pageref{simulation}.
+
+\begin{figure}[h]
+\includegraphics[width = \textwidth]{"../diagrammes/simulation"}
+\caption{Diagrammme de la classe \texttt{Simulation}}
+\label{simulation}
+\end{figure}
+
+Lors de l'exécution de la simulation, seule une instance de la classe doit être créée. Le constructeur de cette classe prend en paramètre le nombre de proies et prédateurs à créer, uniformément répartis, et une instance de la classe \texttt{Cst}, servant à donner l'ensemble des constantes du problème, sauf la taille de la simulation, le taux de rafraîchissement de la simulation et le nombre d'étapes de simulation, gardés dans la classe pour ne pas modifier la classe \texttt{GraphicalDisplay}. 
+Les différentes méthodes ont des noms relativement explicites quand à leur but: \texttt{move()} déplace l'ensemble des animaux, en mettant à jour la stratégie de déplacement, \texttt{manageBorders()} s'occupe de récupérer les animaux hors-simulation, et de les envoyer au client (factice ou non) pour que les échanges avec le serveur soient faits. Vient ensuite la méthode \texttt{predate()} qui donne l'opportunité à tous les prédateurs de manger, puis \texttt{reproduce()} permet à tous les animaux de se reproduire si possible. Ensuite \texttt{updateStatus()} met à jour toutes les informations d'age et de faim, et enfin \texttt{cleanUp}  se charge de retirer l'ensemble des animaux morts au cours de l'étape des deux listes \texttt{preys} et \texttt{preds} de proies et prédateurs respectivement. La méthode \texttt{getElements} concatène ces deux listes sous forme de liste de \texttt{Circle} et les renvoie, pour affichage graphique. Enfin, la méthode \texttt{eval()} est une fonction d'évaluation de la stabilité de la simulation sur 480 cycles (20s à 24 images par secondes).
+
+Les autres attributs de cette classe sont \texttt{rand} de type \texttt{Random}, pour générer l'ensemble des nombres aléatoires nécessaires à la simulation (direction des proies, probabilités de reproduction, direction des nouveaux-nés), et \texttt{dummy} ou \texttt{client} servant à la gestion des frontières.
+\FloatBarrier
+\subsection{La classe \texttt{Cst}}
+\FloatBarrier
+La classe \texttt{Cst} sert à contenir l'ensemble des constantes du problème. Son diagramme de classe est représenté figure~\ref{cst} page~\pageref{cst}. Les attributs sont tous nommés de manière explicite et ont comme seule propriété \texttt{final} afin de pouvoir être initialisés lors de l'exécution: la classe possède deux constructeurs, un constructeur explicite permettant de définir l'ensemble des constantes lors de l'exécution, et un constructeur par défaut, reprenant les paramètres donnant la simulation la plus stable jusqu'à présent.
+\begin{figure}[h]
+\includegraphics[width = \textwidth]{"../diagrammes/cst"}
+\caption{Diagramme de la classe \texttt{cst}}
+\label{cst}
+\end{figure}
+\FloatBarrier
+\subsection{La classe \texttt{DummyClient}}
+\FloatBarrier
+La classe \texttt{DummyClient} sert de "faux client" afin de minimiser la modification du code de simulation lors du passage au client d'interconnexion.
+Son diagramme de classe est présenté dans la figure~\ref{dummy} page~\pageref{dummy}. Son fonctionnement consiste à stocker les proies et prédateurs qui sortent de la simulation, via les méthodes \texttt{addPrey()} et \texttt{addPred()}, calculer les nouvelles coordonnées pour chaque proie, ou prédateur, puis les renvoie via les méthodes \texttt{getPreys()} et \texttt{getPreds()}.
+\begin{figure}[h]
+\includegraphics[width = \textwidth]{"../diagrammes/dummy"}
+\caption{Diagramme de la classe \texttt{DummyClient}}
+\label{dummy}
+\end{figure}
+\FloatBarrier
+\subsection{La classe \texttt{InterconnectionClient}}
+\FloatBarrier
+La classe \texttt{InterconnectionClient} permet la communication avec un serveur pour gérer la sortie et l'entrée d'animaux dans la simulation. Elle est représentée figure~\ref{client} page~\pageref{client}.
+
+\begin{figure}[h]
+\includegraphics[width = \textwidth]{"../diagrammes/client"}
+\caption{Diagramme de la classe \texttt{InterconnectionClient}}
+\label{client}
+\end{figure}
+
+Cette classe interagit de la même manière avec la classe \texttt{Simulation} (d'ailleurs, une interface aurait pu être réalisée à cette fin). Le client utilise le même protocole de communication pour un \texttt{SimpleServer} ou un \texttt{MultiServer}, en suivant le protocole définit dans le cahier des charges de la simulation. Cette classe effectue une opération de mise à l'échelle entre 0 et 1 des coordonnées, pour pouvoir fonctionner en accord avec les serveurs.
+\FloatBarrier
+\subsection{La classe \texttt{MultiServer}}
+\FloatBarrier
+Cette classe représente un serveur capable d'inter-connecter un nombre carré de clients. Son diagramme est représenté en figure~\ref{server} page~\pageref{server}.
+
+\begin{figure}[h]
+\includegraphics[width = \textwidth]{"../diagrammes/server"}
+\caption{Digramme de la classe \texttt{MultiServer}}
+\label{server}
+\end{figure}
+
+Ce serveur comporte une classe interne, \texttt{Packet} qui lui permet de plus simplement gérer les flux de données entre les différents clients. Par nature du traitement des données par le serveur, comme le serveur traite d'abord l'ensemble des animaux entrants, puis ensuite seulement renvoie les animaux aux bon clients, et les fonction de lecture de données étant bloquantes, cela synchronise l'ensemble des clients à chaque cycle.
+\FloatBarrier
+\section{Les différentes simulations codées}
+
+Le code rendu comporte quatre packages, pour les différentes améliorations apportées.
+
+\subsection{Simulation de base}
+Cette version de la simulation ne comporte pas d'améliorations notable, mais peut être une limitation de l'age minimum de reproduction à 2 secondes, pour limiter les évolutions exponentielles. Cette version de la simulation est "stable" (pas d'extinctions, ni de reproduction incontrôlées) sur au moins 480 cycles (20 sec à 24ips).
+
+\subsection{Simulation avec \texttt{SimpleServer}}
+
+Cette version intègre uniquement le serveur simple en plus. Le problème avec ce serveur est la lenteur des communications. En effet, il est impossible de faire fonctionner la simulation à plus de 12~Hz. Les paramètres n'ont pas été modifiés pour avoir une simulation stable dans cette configuration.
+
+Il faut lancer le serveur avant de lancer le client, en précisant le numéro de port dans la commande si le port par défaut n'est pas désirable.
+
+\subsection{Simulation avec \texttt{MultiServer}}
+
+Cette version intègre le multi-serveur. Bien que le code ait été soigneusement conçu, il n'a pas pu être entièrement et complètement testé, car l'affichage graphique ne fonctionne pas bien avec plusieurs fenêtres ouvertes à la fois (sur mon ordinateur en tout cas), et la cadence d'images est encore ralentie, car il y a plus de trafic, proportionnel nombre de clients.
+
+Il faut lancer d'abord le serveur, en précisant le nombre de clients se connectant (un carré, sinon le serveur quittera; 1 par défaut) dans la ligne de commande, puis lancer les clients.
+
+\subsection{Simulation avancée}
+
+Cette version finale, n'utilise pas de serveur, afin d'avoir la performance associé au travail en local pur. 
+Les proies fuient les prédateurs dans leur champ de vision de 180 degrés en sprintant (vitesse doublée), et les prédateurs visent la proie la plus proche dans leur champ de vision de 60 degrés sinon avancent en ligne droite. Leur vitesse est proportionnelle à leur faim. L'ensemble des animaux doivent aussi attendre 5 ans (secondes en temps réel) pour pouvoir se reproduire, et les enfants partent dans une direction aléatoire afin d'éviter les reproduction exponentielles chez les prédateurs. Cette simulation est très aléatoire en ce qui concerne la stabilité: les proies peuvent s'éteindre, puis les prédateurs aussi, les prédateurs peuvent s'éteindre, puis les proies aussi, ou alors les proies s'éteignent, et les prédateurs se multiplient indéfiniment, de même en échangeant prédateur et proies, ou la simulation reste stable sur plus de 40 secondes.
+
+\section{Un mot sur la classe \texttt{Gradient}}
+
+Cette classe a été codée afin de pouvoir trouver les paramètres de stabilité optimaux sans trop d'efforts: en effet sur la version de base de la simulation il est possible de jouer sur 9 paramètres indépendants, et sur la version avancé 13 paramètres sont contrôlables via la classe \texttt{Cst}, mais en rajoutant l'age de mort et l'age minimal de reproduction pour proie et prédateur, le nombre de prédateurs et proies présentes au début dans la simulation, cela nous amène jusqu'à 19 paramètres, ce qui n'est pas optimisable à la main. Cette classe codée simplement mobilise les acquis de première année, et cherche à mettre en place une optimisation de la fonction d'évaluation de la classe \texttt{Simulation} par méthode de gradient à pas constant. Les résultats fournis par la méthode n'ont pas été satisfaisant pour le moment, mais cela peut s'expliquer par plusieurs raisons:\begin{itemize}
+\item La fonction à optimiser n'est pas déterministe, et son gradient non plus par la même occasion
+\item Les temps d'exécution de la fonction d'évaluation et du calcul du gradient ne permettent pas de laisser l'algorithme tourner sur un nombre suffisant d'itérations
+\item Le pas n'est peut être pas choisi correctement, je n'ai pas pris le temps de calculer un pas de temps correct
+\item les contraintes n'ont pas été implémentées sur les paramètres: certains paramètres passaient négatif, ce qui est absurde.
+\end{itemize} 
+Ces raisons ont donc conduit à rapidement abandonner son utilisation.
+
+\section{Améliorations possibles et conclusion}
+Cette simulation pourrait être d'avantage enrichie, il est en effet possible de complexifier le comportement des animaux à souhait. Cependant des améliorations peuvent être apportées au code actuel. Premièrement pour rendre le code d'avantage générique, les classes \texttt{DummyClient} et \texttt{InterconnectionClient} auraient pu réaliser une interface, afin de pouvoir créer plus facilement d'autres clients, qui auraient permis notamment l'exécution de la simulation sur plusieurs cœurs, (similaire aux pratiques se faisant en simulation numérique de dynamique des fluides). D'autre part, le protocole UDP aurait pu être choisi pour la communication entre client et serveur. En effet, si les simulation fonctionnent avec beaucoup d'animaux, la perte occasionnelle de quelques créatures n'est pas grave, et cela aurait permis des communications beaucoup plus rapide, et donc des taux de rafraichissement de l'affichage proche des 24Hz (c'est ce qui se fait pour les serveurs de jeux vidéos, tournant jusqu'à 60Hz). Enfin, plutôt que de coder une méthode du gradient inefficace, et incomplet, une recherche aléatoire de paramètres aurait pu être plus efficace.
+
+Le code fourni contient donc un mélange de simulations fonctionnelles ou non, selon différents degrés. des informations supplémentaires sur le fonctionnement de chaque classe, des algorithmes utilisés est consultable dans les commentaires du code. 
+
+\vspace{1cm}
+\noindent Fin de la notice.
+\end{document}
